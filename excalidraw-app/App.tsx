@@ -130,6 +130,8 @@ import {
   localStorageQuotaExceededAtom,
 } from "./data/LocalData";
 import { isBrowserStorageStateNewer } from "./data/tabSync";
+import * as RemoteScenes from "./data/RemoteScenes";
+import { DrawingsDialog } from "./components/DrawingsDialog";
 import { ShareDialog, shareDialogStateAtom } from "./share/ShareDialog";
 import CollabError, { collabErrorIndicatorAtom } from "./collab/CollabError";
 import { useHandleAppTheme } from "./useHandleAppTheme";
@@ -231,6 +233,46 @@ const initializeScene = async (opts: {
   const externalUrlMatch = window.location.hash.match(/^#url=(.*)$/);
 
   const localDataState = importFromLocalStorage();
+
+  // --- self-host: one drawing per URL ---------------------------------------
+  // `#d=<id>` loads that drawing from the scene store. A bare root URL mints a
+  // fresh id and starts blank. Both paths take only *appState* from
+  // localStorage (theme, pen settings and other user prefs we don't keep on the
+  // server) and never its elements, so a stale local scene can't flash first.
+  const drawingId = RemoteScenes.getSceneIdFromHash();
+  const isBareUrl =
+    !window.location.hash && !window.location.search && !externalUrlMatch;
+
+  if (drawingId || isBareUrl) {
+    const sceneId = drawingId ?? RemoteScenes.newSceneId();
+    const remote = drawingId ? await RemoteScenes.loadScene(sceneId) : null;
+
+    RemoteScenes.setCurrentSceneId(sceneId);
+    if (!drawingId) {
+      window.history.replaceState({}, APP_NAME, `#d=${sceneId}`);
+    }
+
+    return {
+      scene: {
+        elements: restoreElements(remote?.elements, null, {
+          repairBindings: true,
+          deleteInvisibleElements: true,
+        }),
+        appState: restoreAppState(
+          {
+            ...remote?.appState,
+            name: remote?.name ?? RemoteScenes.defaultSceneName(),
+          },
+          localDataState?.appState ?? null,
+        ),
+        // scrollX/scrollY/zoom are persisted per drawing, so returning to one
+        // restores the viewport you left. Only fall back to centring when a
+        // drawing predates that (or was imported without a viewport).
+        scrollToContent: !!remote && remote.appState?.scrollX === undefined,
+      },
+      isExternalScene: false,
+    };
+  }
 
   let scene: Omit<
     RestoredDataState,
@@ -376,6 +418,7 @@ const ExcalidrawWrapper = () => {
   const excalidrawAPI = useExcalidrawAPI();
 
   const [errorMessage, setErrorMessage] = useState("");
+  const [isDrawingsDialogOpen, setIsDrawingsDialogOpen] = useState(false);
   const isCollabDisabled = isRunningInIframe();
 
   const { editorTheme, appTheme, setAppTheme } = useHandleAppTheme();
@@ -531,7 +574,10 @@ const ExcalidrawWrapper = () => {
               ),
             ]);
           });
-        } else if (isInitialLoad) {
+        } else {
+          // Not gated on `isInitialLoad` any more: switching drawings changes
+          // the hash rather than reloading the page, and those scenes need
+          // their images too.
           if (fileIds.length) {
             LocalData.fileStorage
               .getFiles(fileIds)
@@ -539,18 +585,28 @@ const ExcalidrawWrapper = () => {
                 if (loadedFiles.length) {
                   excalidrawAPI.addFiles(loadedFiles);
                 }
+                // Blobs this browser has never seen (drawn on another device)
+                // or that clearObsoleteFiles GC'd come from the scene store.
+                const remote = await RemoteScenes.getFiles([
+                  ...erroredFiles.keys(),
+                ]);
+                if (remote.loadedFiles.length) {
+                  excalidrawAPI.addFiles(remote.loadedFiles);
+                }
                 updateStaleImageStatuses({
                   excalidrawAPI,
-                  erroredFiles,
+                  erroredFiles: remote.erroredFiles,
                   elements: excalidrawAPI.getSceneElementsIncludingDeleted(),
                 });
               });
           }
-          // on fresh load, clear unused files from IDB (from previous
-          // session)
-          LocalData.fileStorage.clearObsoleteFiles({
-            currentFileIds: fileIds,
-          });
+          if (isInitialLoad) {
+            // on fresh load, clear unused files from IDB (from previous
+            // session)
+            LocalData.fileStorage.clearObsoleteFiles({
+              currentFileIds: fileIds,
+            });
+          }
         }
       }
     },
@@ -655,11 +711,13 @@ const ExcalidrawWrapper = () => {
 
     const onUnload = () => {
       LocalData.flushSave();
+      RemoteScenes.flushSave();
     };
 
     const visibilityChange = (event: FocusEvent | Event) => {
       if (event.type === EVENT.BLUR || document.hidden) {
         LocalData.flushSave();
+        RemoteScenes.flushSave();
       }
       if (
         event.type === EVENT.VISIBILITY_CHANGE ||
@@ -690,6 +748,7 @@ const ExcalidrawWrapper = () => {
   useEffect(() => {
     const unloadHandler = (event: BeforeUnloadEvent) => {
       LocalData.flushSave();
+      RemoteScenes.flushSave();
 
       if (
         excalidrawAPI &&
@@ -724,6 +783,8 @@ const ExcalidrawWrapper = () => {
     // this check is redundant, but since this is a hot path, it's best
     // not to evaludate the nested expression every time
     if (!LocalData.isSavePaused()) {
+      RemoteScenes.save(elements, appState, files);
+
       LocalData.save(elements, appState, files, () => {
         if (excalidrawAPI) {
           let didChange = false;
@@ -1033,6 +1094,8 @@ const ExcalidrawWrapper = () => {
           isCollabEnabled={!isCollabDisabled}
           theme={appTheme}
           refresh={() => forceRefresh((prev) => !prev)}
+          onNewDrawing={() => RemoteScenes.openNewScene()}
+          onDrawingsDialogOpen={() => setIsDrawingsDialogOpen(true)}
         />
         <AppWelcomeScreen
           onCollabDialogOpen={onCollabDialogOpen}
@@ -1101,6 +1164,10 @@ const ExcalidrawWrapper = () => {
         />
 
         <AppSidebar />
+
+        {isDrawingsDialogOpen && (
+          <DrawingsDialog onClose={() => setIsDrawingsDialogOpen(false)} />
+        )}
 
         {errorMessage && (
           <ErrorDialog onClose={() => setErrorMessage("")}>

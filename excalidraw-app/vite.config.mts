@@ -127,7 +127,11 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
-      sourcemap: true,
+      // Self-host: sourcemaps are the peak-memory step of `rendering chunks`
+      // and the container build gets OOM-killed inside the 3.9GB podman VM
+      // (which also hosts odyssey + backupd). deployd has to be able to rebuild
+      // this unattended, so the Docker build opts out. Default stays upstream's.
+      sourcemap: process.env.VITE_APP_DISABLE_SOURCEMAP !== "true",
       // don't auto-inline small assets (i.e. fonts hosted on CDN)
       assetsInlineLimit: 0,
     },

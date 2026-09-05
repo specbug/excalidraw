@@ -1,4 +1,7 @@
 .DS_Store
+# Self-host: the stack's real secrets (CLOUDFLARE_TUNNEL_TOKEN) live in .env.
+# Upstream only ignores the .local variants, so bare .env would be committed.
+.env
 .env.development.local
 .env.local
 .env.production.local

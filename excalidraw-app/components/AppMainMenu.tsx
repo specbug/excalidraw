@@ -2,6 +2,8 @@ import {
   loginIcon,
   ExcalLogo,
   eyeIcon,
+  PlusIcon,
+  LoadIcon,
 } from "@excalidraw/excalidraw/components/icons";
 import { useI18n } from "@excalidraw/excalidraw/i18n";
 import { MainMenu } from "@excalidraw/excalidraw/index";
@@ -22,10 +24,21 @@ export const AppMainMenu: React.FC<{
   isCollabEnabled: boolean;
   theme: Theme | "system";
   refresh: () => void;
+  onNewDrawing: () => void;
+  onDrawingsDialogOpen: () => void;
 }> = React.memo((props) => {
   const { t } = useI18n();
   return (
     <MainMenu>
+      {/* Self-host: drawings live on the server, so the menu opens and lists
+          them rather than only loading from disk. */}
+      <MainMenu.Item icon={PlusIcon} onSelect={props.onNewDrawing}>
+        New drawing
+      </MainMenu.Item>
+      <MainMenu.Item icon={LoadIcon} onSelect={props.onDrawingsDialogOpen}>
+        All drawings…
+      </MainMenu.Item>
+      <MainMenu.Separator />
       <MainMenu.DefaultItems.LoadScene />
       <MainMenu.DefaultItems.SaveToActiveFile />
       <MainMenu.DefaultItems.Export />
