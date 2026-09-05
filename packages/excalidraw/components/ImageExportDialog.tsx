@@ -21,7 +21,6 @@ import {
 import { probablySupportsClipboardBlob } from "../clipboard";
 import { prepareElementsForExport } from "../data";
 import { canvasToBlob } from "../data/blob";
-import { nativeFileSystemSupported } from "../data/filesystem";
 import { useCopyStatus } from "../hooks/useCopiedIndicator";
 
 import { t } from "../i18n";
@@ -197,22 +196,23 @@ const ImageExportModal = ({
           {renderError && <ErrorCanvasPreview />}
         </div>
         <div className="ImageExportModal__preview__filename">
-          {!nativeFileSystemSupported && (
-            <input
-              type="text"
-              className="TextInput"
-              value={projectName}
-              style={{ width: "30ch" }}
-              onChange={(event) => {
-                setProjectName(event.target.value);
-                actionManager.executeAction(
-                  actionChangeProjectName,
-                  "ui",
-                  event.target.value,
-                );
-              }}
-            />
-          )}
+          {/* Self-host: see JSONExportDialog — the name is the drawing's
+              identity, so it stays editable even with the File System Access
+              API available. */}
+          <input
+            type="text"
+            className="TextInput"
+            value={projectName}
+            style={{ width: "30ch" }}
+            onChange={(event) => {
+              setProjectName(event.target.value);
+              actionManager.executeAction(
+                actionChangeProjectName,
+                "ui",
+                event.target.value,
+              );
+            }}
+          />
         </div>
       </div>
       <div className="ImageExportModal__settings">
