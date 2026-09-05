@@ -228,6 +228,13 @@ export const DrawingsDialog = ({ onClose }: { onClose: () => void }) => {
                   refresh();
                 }}
                 onDelete={async () => {
+                  if (
+                    !window.confirm(
+                      `Delete "${scene.name}"? This can't be undone.`,
+                    )
+                  ) {
+                    return;
+                  }
                   await RemoteScenes.deleteScene(scene.id);
                   if (scene.id === currentSceneId) {
                     // The drawing under us is gone; land on a fresh one.
