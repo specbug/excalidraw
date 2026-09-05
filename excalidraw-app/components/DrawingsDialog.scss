@@ -43,6 +43,10 @@
       &:hover,
       &:focus-within {
         background-color: var(--color-surface-high);
+
+        .DrawingsDialog__row__actions {
+          opacity: 1;
+        }
       }
 
       &--renaming {
@@ -121,11 +125,6 @@
         align-items: center;
         gap: 0.25rem;
         opacity: 0;
-
-        .DrawingsDialog__row:hover &,
-        .DrawingsDialog__row:focus-within & {
-          opacity: 1;
-        }
       }
 
       // Downloads must be a real anchor to get the browser's save behaviour,
