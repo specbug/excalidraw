@@ -1,0 +1,49 @@
+# Self-hosting stack for draw.sixeleven.in.
+#
+# Podman prefers compose.yml over the upstream docker-compose.yml, so this file
+# wins without having to delete upstream's (which stays as the dev-mode recipe).
+name: draw
+
+services:
+  api:
+    build: ./self-host/api
+    restart: always
+    volumes:
+      - draw-data:/data
+    environment:
+      DATA_DIR: /data
+      PORT: "8100"
+    ports:
+      - "8100:8100" # local access / curl-based debugging
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-m", "3", "http://localhost:8100/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "3100:80" # local LAN access at http://localhost:3100
+    depends_on:
+      - api
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: always
+    # Tunnel ingress must be configured in the Cloudflare dashboard to route to
+    # http://web:80, and the hostname must sit behind a Cloudflare Access
+    # application — the app has no auth of its own.
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - web
+
+volumes:
+  draw-data:
+    name: draw-data # Global name (no project prefix) so backupd can mount it
