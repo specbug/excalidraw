@@ -1,0 +1,31 @@
+# hostd manifest. Everything hostd needs to deploy and supervise this app.
+# The machine-readable form of self-host/INTEGRATION.md, which stays as the
+# prose explanation. See SPEC.md in the hostd repo.
+
+name: draw
+branch: master   # this is a fork of excalidraw/excalidraw; master, not main
+
+health:
+  container: draw_api_1
+  url: http://localhost:8100/health
+  restart: draw_api_1
+
+build:
+  # yarn install plus a vite build from source, inside the podman VM. Well
+  # over the 900s default; see CLAUDE.md on the sourcemap opt-out.
+  timeout: 1800
+
+backup:
+  volume: draw-data
+  # No database: every drawing is a real .excalidraw file, so a directory
+  # mirror is complete. meta/ is a derived listing cache and is deliberately
+  # not backed up; the api rebuilds it on miss.
+  jobs:
+    - name: draw-scenes
+      type: sync
+      source: scenes/
+      destination: draw/scenes/
+    - name: draw-files
+      type: sync
+      source: files/
+      destination: draw/files/

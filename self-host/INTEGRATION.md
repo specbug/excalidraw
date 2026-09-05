@@ -1,6 +1,12 @@
 # Integration manifest
 
-Everything the hosting framework needs to know about this app. Nothing here is applied by this repo — the app declares, the infra disposes.
+Everything the hosting framework needs to know about this app. Nothing here is
+applied by this repo: the app declares, the infra disposes.
+
+The machine-readable form of this document is `deploy.yml` at the repo root,
+which hostd reads. This file is the prose explanation; `deploy.yml` is what
+actually takes effect, so keep them in agreement. The contract they both
+follow is `SPEC.md` in the hostd repo.
 
 ## Identity
 
@@ -61,4 +67,7 @@ The image builds from source: yarn install + vite build, several minutes, and it
 
 ## What this repo does NOT do
 
-No LaunchAgent, no watchdog script, no backup job definitions, no deploy registration. Those belong to the hosting framework.
+No LaunchAgent, no watchdog script, no supervisor, no deploy registration.
+Those belong to the hosting framework, and under hostd they genuinely do:
+onboarding this app required no per-app code anywhere, only `deploy.yml` here
+and one line in hostd's registry.
