@@ -40,13 +40,16 @@
       padding: 0.25rem;
       border-radius: var(--border-radius-lg);
 
+      // Row actions stay hidden until the row is hovered or holds focus. Drive
+      // that off an inherited custom property so it's a single-element state
+      // flip on the row itself — no descendant selector reaching back into the
+      // row, so no `&`-expansion or specificity trap to get wrong.
+      --row-actions-opacity: 0;
+
       &:hover,
       &:focus-within {
         background-color: var(--color-surface-high);
-
-        .DrawingsDialog__row__actions {
-          opacity: 1;
-        }
+        --row-actions-opacity: 1;
       }
 
       &--renaming {
@@ -124,7 +127,7 @@
         display: flex;
         align-items: center;
         gap: 0.25rem;
-        opacity: 0;
+        opacity: var(--row-actions-opacity);
       }
 
       // Downloads must be a real anchor to get the browser's save behaviour,
@@ -150,11 +153,11 @@
     }
   }
 
-  // No hover on touch, so the row actions stay visible on mobile. `isMobile`
-  // is Excalidraw's own breakpoint mixin (.excalidraw--mobile).
-  .DrawingsDialog__row__actions {
+  // No hover on touch, so pin the actions visible on mobile. `isMobile` is
+  // Excalidraw's own breakpoint mixin (.excalidraw--mobile).
+  .DrawingsDialog__row {
     @include isMobile() {
-      opacity: 1;
+      --row-actions-opacity: 1;
     }
   }
 }
